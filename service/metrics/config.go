@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"fmt"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spiral/roadrunner/service"
 )
@@ -11,8 +12,20 @@ type Config struct {
 	// Address to listen
 	Address string
 
+	//Basic Authorization
+	Basic BasicAuthCfg
+
 	// Collect define application specific metrics.
 	Collect map[string]Collector
+}
+
+// BasicAuthCfg configures metrics service auth.
+type BasicAuthCfg struct {
+	// Username
+	Username string
+
+	//Password
+	Password string
 }
 
 // Collector describes single application specific metric.

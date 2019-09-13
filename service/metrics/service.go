@@ -2,11 +2,14 @@ package metrics
 
 import (
 	"context"
+	"encoding/base64"
+	"net/http"
+	"strings"
+	"sync"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spiral/roadrunner/service/rpc"
-	"net/http"
-	"sync"
 )
 
 // ID declares public service name.
@@ -17,6 +20,7 @@ type Service struct {
 	cfg        *Config
 	mu         sync.Mutex
 	http       *http.Server
+	mdlw       []http.Handler
 	collectors sync.Map
 	registry   *prometheus.Registry
 }
@@ -70,13 +74,50 @@ func (s *Service) Serve() error {
 	}
 
 	s.mu.Lock()
-	s.http = &http.Server{Addr: s.cfg.Address, Handler: promhttp.HandlerFor(
+
+	handler := promhttp.HandlerFor(
 		s.registry,
 		promhttp.HandlerOpts{},
-	)}
+	)
+	http.Handle("/", s.BasicAuth(handler))
+	s.http = &http.Server{Addr: s.cfg.Address}
 	s.mu.Unlock()
 
 	return s.http.ListenAndServe()
+}
+
+// BasicAuth for prometheus metrics
+func (s *Service) BasicAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Our middleware logic goes here...
+
+		w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
+
+		s := strings.SplitN(r.Header.Get("Authorization"), " ", 2)
+		if len(s) != 2 {
+			http.Error(w, "Not authorized", 401)
+			return
+		}
+
+		b, err := base64.StdEncoding.DecodeString(s[1])
+		if err != nil {
+			http.Error(w, err.Error(), 401)
+			return
+		}
+
+		pair := strings.SplitN(string(b), ":", 2)
+		if len(pair) != 2 {
+			http.Error(w, "Not authorized", 401)
+			return
+		}
+
+		if pair[0] != "username" || pair[1] != "password" {
+			http.Error(w, "Not authorized", 401)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }
 
 // Stop prometheus metrics service.
