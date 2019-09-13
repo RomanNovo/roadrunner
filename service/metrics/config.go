@@ -13,7 +13,7 @@ type Config struct {
 	Address string
 
 	//Basic Authorization
-	Basic BasicAuthCfg
+	BasicAuth BasicAuthCfg
 
 	// Collect define application specific metrics.
 	Collect map[string]Collector
@@ -52,6 +52,17 @@ type Collector struct {
 // Hydrate configuration.
 func (c *Config) Hydrate(cfg service.Config) error {
 	return cfg.Unmarshal(c)
+}
+
+// EnableBasicAuth is true when BasicAuth must run.
+func (c *Config) EnableBasicAuth() bool {
+	auth := &c.BasicAuth
+	if auth == nil {
+		return false
+	} else if auth.Username != "" && auth.Password != "" {
+		return true
+	}
+	return false
 }
 
 // register application specific metrics.

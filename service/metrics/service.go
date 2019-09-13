@@ -79,7 +79,12 @@ func (s *Service) Serve() error {
 		s.registry,
 		promhttp.HandlerOpts{},
 	)
-	http.Handle("/", s.BasicAuth(handler))
+
+	if s.cfg.EnableBasicAuth() {
+		http.Handle("/", s.BasicAuth(handler))
+	} else {
+		http.Handle("/", handler)
+	}
 	s.http = &http.Server{Addr: s.cfg.Address}
 	s.mu.Unlock()
 
